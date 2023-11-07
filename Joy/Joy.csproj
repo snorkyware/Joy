@@ -36,6 +36,7 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="Properties\AssemblyInfo.cs" />
         <Reference Include="System" />
         <Reference Include="System.Core" />
         <Reference Include="System.Xml" />
@@ -69,8 +70,10 @@
         <Reference Include="UnityEngine.InputLegacyModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
             <HintPath>$(VALHEIM_INSTALL)\unstripped_corlib\UnityEngine.InputLegacyModule.dll</HintPath>
         </Reference>
+        <Reference Include="Unity.TextMeshPro, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>$(VALHEIM_INSTALL)\unstripped_corlib\Unity.TextMeshPro.dll</HintPath>
+        </Reference>
         <Compile Include="Joy.cs" />
-        <Compile Include="Properties\AssemblyInfo.cs" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
     <Target Name="DisplayMessages" BeforeTargets="PrepareForBuild">

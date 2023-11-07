@@ -5,13 +5,10 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Joy")]
-[assembly: AssemblyDescription("Valheim joypad enhancement plugin")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Snorkyare")]
+[assembly: AssemblyDescription("Valheim joypad/controller experience plugin")]
+[assembly: AssemblyCompany("Snorkyware")]
 [assembly: AssemblyProduct("Joy")]
-[assembly: AssemblyCopyright("Copyright ©  2023")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
+[assembly: AssemblyCopyright("Copyright © Snorkyware 2023")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
@@ -32,3 +29,5 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("0.0.*")]
+
+[assembly: AssemblyMetadata("RepositoryUrl", "https://github.com/snorkyware/Joy")]

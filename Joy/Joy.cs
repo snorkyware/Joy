@@ -203,7 +203,7 @@ namespace Joy
                 private class DefaultFlyModeTogglerPlayerPatch
                 {
                     [HarmonyPrefix, HarmonyPatch("UseStamina")]
-                    private void UseStaminaPrefix(ref float v)
+                    private static void UseStaminaPrefix(ref float v)
                     {
                         if (!_enableFlyMode) return;
                         v = 0.0f;
@@ -345,24 +345,20 @@ namespace Joy
                 float 
                     repeatDelay = 0.3f,
                     repeatInterval = 0.1f;
-                __instance.AddButton(L1, KeyCode.JoystickButton4, showHints: false);
-                __instance.AddButton(L2, "JoyAxis 3", true, showHints: false);
-                __instance.AddButton(R1, KeyCode.JoystickButton5, showHints: false);
-                __instance.AddButton(R2, "JoyAxis 3", showHints: false);
-                __instance.AddButton(Left, "JoyAxis 6", true, repeatDelay, 
-                    repeatInterval, false);
-                __instance.AddButton(Right, "JoyAxis 6", repeatDelay: repeatDelay, 
-                    repeatInterval: repeatInterval, showHints: false);
-                __instance.AddButton(Up, "JoyAxis 7", repeatDelay: repeatDelay, 
-                    repeatInterval: repeatInterval, showHints: false);
-                __instance.AddButton(Down, "JoyAxis 7", true, repeatDelay, 
-                    repeatInterval, false);
-                __instance.AddButton(A, KeyCode.JoystickButton0, showHints: false);
-                __instance.AddButton(B, KeyCode.JoystickButton1, showHints: false);
-                __instance.AddButton(X, KeyCode.JoystickButton2, showHints: false);
-                __instance.AddButton(Y, KeyCode.JoystickButton3, showHints: false);
-                __instance.AddButton(L3, KeyCode.JoystickButton8, showHints: false);
-                __instance.AddButton(R3, KeyCode.JoystickButton9, showHints: false);
+                __instance.AddButton(L1, GamepadInput.BumperL);
+                __instance.AddButton(L2, GamepadInput.TriggerL);
+                __instance.AddButton(R1, GamepadInput.BumperR);
+                __instance.AddButton(R2, GamepadInput.TriggerR);
+                __instance.AddButton(Left, GamepadInput.DPadLeft);
+                __instance.AddButton(Right, GamepadInput.DPadRight);
+                __instance.AddButton(Up, GamepadInput.DPadUp);
+                __instance.AddButton(Down, GamepadInput.DPadDown);
+                __instance.AddButton(A, GamepadInput.FaceButtonA);
+                __instance.AddButton(B, GamepadInput.FaceButtonB);
+                __instance.AddButton(X, GamepadInput.FaceButtonX);
+                __instance.AddButton(Y, GamepadInput.FaceButtonY);
+                __instance.AddButton(L3, GamepadInput.StickLButton);
+                __instance.AddButton(R3, GamepadInput.StickRButton);
             }
 
             [HarmonyPrefix, HarmonyPatch(typeof(ZInput)), HarmonyPatch("GetButton")]
@@ -426,7 +422,7 @@ namespace Joy
                 if (pin is null) return;
 				
                 pin.m_iconElement.color = ColorGold;
-                pin.m_nameElement.color = ColorGold;
+                pin.m_NamePinData.PinNameText.color = ColorGold;
             }
 
             private interface IClosestPinGetter
