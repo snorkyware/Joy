@@ -422,7 +422,8 @@ namespace Joy
                 if (pin is null) return;
 				
                 pin.m_iconElement.color = ColorGold;
-                pin.m_NamePinData.PinNameText.color = ColorGold;
+                if (pin.m_NamePinData != null && pin.m_NamePinData.PinNameText)
+                    pin.m_NamePinData.PinNameText.color = ColorGold;
             }
 
             private interface IClosestPinGetter
