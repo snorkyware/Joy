@@ -37,10 +37,6 @@ namespace Joy
             Log("Awake");
         }
         
-        private delegate bool TakeInputDelegate(Character instance);
-        private static readonly TakeInputDelegate TakeInput = AccessTools.MethodDelegate<TakeInputDelegate>
-            (AccessTools.Method(typeof(Player), "TakeInput"));
-        
         [HarmonyPatch]
         private class FlyModePatch
         {
@@ -66,65 +62,75 @@ namespace Joy
 
             // Joy Button Combo to Enable Fly Mode
             [HarmonyPrefix, HarmonyPatch(typeof(Player)), HarmonyPatch("Update")]
-            private static bool UpdatePrefix(Player __instance, ZNetView ___m_nview, ref bool ___m_debugFly, 
-                ref bool ___m_noPlacementCost)
+            private static bool UpdatePrefix(Player __instance)
             {
-                if (!___m_nview.IsValid() || !___m_nview.IsOwner()) return false;
-                
-                if (!TakeInput(__instance) || !ZInput.GetButtonDown("JoySit")) return true;
-
-                if (ZInput.GetButton("JoyAltKeys") && !ZInput.GetButton("JoyRun"))
-                {
-                    _flyModeToggler.ToggleFlyMode(ref ___m_debugFly, ref ___m_noPlacementCost);
-                    return false;
+                if (
+                    ZInput.InputLayout != InputLayout.Default && 
+                    ZInput.IsGamepadActive() && 
+                    !InventoryGui.IsVisible() && 
+                    !ZInput.GetButtonUp("JoyAltPlace") &&
+                    ZInput.GetButton("JoyAltKeys")
+                ){
+                    __instance.m_altPlace = !__instance.m_altPlace;
+                    if (MessageHud.instance != null)
+                        MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, 
+                            Localization.instance.Localize("$hud_altplacement") + " " +
+                            (__instance.m_altPlace ? Localization.instance.Localize("$hud_on") :
+                                Localization.instance.Localize("$hud_off")));
                 }
                 
-                // Don't actually sit down if in fly mode.
-                if (___m_debugFly) return false;
+                if (!__instance.m_nview.IsValid() || !__instance.m_nview.IsOwner()) return false;
+                bool input = __instance.TakeInput();
+                __instance.UpdateHover();
 
-                // Nothing left to do but sit!
+                if (input) {
+                    if (ZInput.GetButton("JoyAltKeys") && !ZInput.GetButton("JoyRun") &&
+                        ZInput.GetButtonDown("JoySit")
+                    ){
+                        _flyModeToggler.ToggleFlyMode(ref __instance.m_debugFly, ref __instance.m_noPlacementCost);
+                        return false;
+                    }
+                    
+                    // Don't actually sit down if in fly mode.
+                    if (__instance.m_debugFly && ZInput.GetButtonDown("JoySit") || 
+                        ZInput.GetButtonUp("JoySit")) return false;
+                }
+
                 return true;
             }
 
-            private delegate void UpdateEyeRotationDelegate(Character instance);
-            private static readonly UpdateEyeRotationDelegate UpdateEyeRotation = AccessTools
-                .MethodDelegate<UpdateEyeRotationDelegate>
-                    (AccessTools.Method(typeof(Character), "UpdateEyeRotation"));
-            
             // Enable Joy Buttons for Fly Up and Down
             [HarmonyPrefix, HarmonyPatch(typeof(Character)), HarmonyPatch("UpdateDebugFly")]
-            private static bool UpdateDebugFlyPrefix(Character __instance, bool ___m_run, Vector3 ___m_moveDir, 
-                ref Vector3 ___m_currentVel, Rigidbody ___m_body, ref float ___m_lastGroundTouch, 
-                ref float ___m_maxAirAltitude, Quaternion ___m_lookYaw, float dt)
+            private static bool UpdateDebugFlyPrefix(Character __instance, float dt)
             {
-                float num = ___m_run ? Character.m_debugFlySpeed * 2.5f : Character.m_debugFlySpeed;
-                Vector3 b = ___m_moveDir * num;
-            
-                if (TakeInput(__instance))
+                float num = __instance.m_run ? Character.m_debugFlySpeed * 2.5f : Character.m_debugFlySpeed;
+                Vector3 b = __instance.m_moveDir * num;
+                if (__instance.TakeInput())
                 {
                     if (ZInput.GetButton("Jump") || ZInput.GetButton("JoyJump"))
+                        // This is is the original source but as soon as a build piece is visible you can never fly up
+                        // again. Plus we actually want to be able to fly with a build piece visible anyway.
+                        // && Character.takeInputDelay <= 0.0 && !Hud.IsPieceSelectionVisible())
                         b.y = num;
-                    else if (Input.GetKey(KeyCode.LeftControl) || ZInput.GetButton("JoyCrouch") || 
-                             ZInput.GetButton("JoySit"))
+                    else if (ZInput.GetKey(KeyCode.LeftControl) || ZInput.GetButton("JoyCrouch") ||
+                            ZInput.GetButton("JoySit"))
                         b.y = -num;
                 }
-                ___m_currentVel = Vector3.Lerp(___m_currentVel, b, 0.5f);
-                ___m_body.velocity = ___m_currentVel;
-                ___m_body.useGravity = false;
-                ___m_lastGroundTouch = 0.0f;
-                ___m_maxAirAltitude = __instance.transform.position.y;
-                ___m_body.rotation = Quaternion.RotateTowards(__instance.transform.rotation, ___m_lookYaw, 
-                    __instance.m_turnSpeed * dt);
-                ___m_body.angularVelocity = Vector3.zero;
-            
-                UpdateEyeRotation(__instance);
-            
+                __instance.m_currentVel = Vector3.Lerp(__instance.m_currentVel, b, 0.5f);
+                __instance.m_body.velocity = __instance.m_currentVel;
+                __instance.m_body.useGravity = false;
+                __instance.m_lastGroundTouch = 0.0f;
+                __instance.m_maxAirAltitude = __instance.transform.position.y;
+                __instance.m_body.rotation = Quaternion.RotateTowards(__instance.transform.rotation, 
+                    __instance.m_lookYaw, __instance.m_turnSpeed * dt);
+                __instance.m_body.angularVelocity = Vector3.zero;
+                __instance.UpdateEyeRotation();
                 return false;
             }
             
             private interface IFlyModeToggler
             {
-                void ToggleFlyMode(ref bool ___m_debugFly, ref bool ___m_noPlacementCost);
+                void ToggleFlyMode(ref bool debugFly, ref bool noPlacementCost);
             }
             
             // Toggle fly mode via Valheim Quality of Life plugin.
@@ -169,9 +175,9 @@ namespace Joy
                     _enableNoCarryLimit = enableNoCarryLimit;
                 }
                 
-                public void ToggleFlyMode(ref bool ___m_debugFly, ref bool ___m_noPlacementCost)
+                public void ToggleFlyMode(ref bool debugFly, ref bool noPlacementCost)
                 {
-                    bool on = !___m_debugFly;
+                    bool on = !debugFly;
                     
                     _enableFlyMode.SetValue(null, on);
                     _enableUnlimitedStamina.SetValue(null, on);
@@ -179,8 +185,8 @@ namespace Joy
                     _noFoodDegrade.SetValue(null, on);
                     _enableNoCarryLimit.SetValue(null, on);
                     
-                    ___m_debugFly = on;
-                    ___m_noPlacementCost = on;
+                    debugFly = on;
+                    noPlacementCost = on;
                 }
             }
 
@@ -191,12 +197,12 @@ namespace Joy
                 
                 public DefaultFlyModeToggler() => Harmony.PatchAll(typeof(DefaultFlyModeTogglerPlayerPatch));
 
-                public void ToggleFlyMode(ref bool ___m_debugFly, ref bool ___m_noPlacementCost)
+                public void ToggleFlyMode(ref bool debugFly, ref bool noPlacementCost)
                 {
-                    bool on = !___m_debugFly;
+                    bool on = !debugFly;
                     _enableFlyMode = on;
-                    ___m_debugFly = on;
-                    ___m_noPlacementCost = on;
+                    debugFly = on;
+                    noPlacementCost = on;
                 }
                 
                 [HarmonyPatch(typeof(Player))]
@@ -342,9 +348,6 @@ namespace Joy
             [HarmonyPostfix, HarmonyPatch(typeof(ZInput)), HarmonyPatch("Reset")]
             private static void ResetPostfix(ZInput __instance)
             {
-                float 
-                    repeatDelay = 0.3f,
-                    repeatInterval = 0.1f;
                 __instance.AddButton(L1, GamepadInput.BumperL);
                 __instance.AddButton(L2, GamepadInput.TriggerL);
                 __instance.AddButton(R1, GamepadInput.BumperR);
@@ -370,10 +373,10 @@ namespace Joy
                 ReturnAndShouldContinue(ref __result, name);
 
             [HarmonyPrefix, HarmonyPatch(typeof(Player)), HarmonyPatch("Update")]
-            private static bool UpdatePrefix(Player __instance, ZNetView ___m_nview)
+            private static bool UpdatePrefix(Player __instance)
             {
-                if (!___m_nview.IsValid() || !___m_nview.IsOwner()) return false;
-                if (!TakeInput(__instance)) return true;
+                if (!__instance.m_nview.IsValid() || !__instance.m_nview.IsOwner()) return false;
+                if (!__instance.TakeInput()) return true;
                 if (Emote(__instance, L1, L2, EmoteState.First)) return false;
                 if (Emote(__instance, R1, R2, EmoteState.Second)) return false;
                 _emoteState = EmoteState.None;
