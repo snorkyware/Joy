@@ -30,6 +30,8 @@ namespace Joy
         
         private void Awake()
         {
+            EmotePatch.Awake();
+            
             Harmony.PatchAll(typeof(FlyModePatch));
             Harmony.PatchAll(typeof(EmotePatch));
             Harmony.PatchAll(typeof(MinimapPatch));
@@ -313,6 +315,25 @@ namespace Joy
                         { L3, "despair" },
                     }}
                 };
+
+            internal static void Awake()
+            {
+                string t = "Emote set 1";
+                Localization.instance.AddWord("settings_" + L1.ToLower(), t);
+                Localization.instance.AddWord("settings_" + L2.ToLower(), t);
+                
+                t = "Emote set 2";
+                Localization.instance.AddWord("settings_" + R1.ToLower(), t);
+                Localization.instance.AddWord("settings_" + R2.ToLower(), t);
+                
+                foreach (var kvp in _emotes[EmoteState.First])
+                {
+                    t = "Emote(" + kvp.Value;
+                    if (_emotes[EmoteState.Second].ContainsKey(kvp.Key))
+                        t += "/" + _emotes[EmoteState.Second][kvp.Key];
+                    Localization.instance.AddWord("settings_" + kvp.Key.ToLower(), t + ")");
+                }
+            }
 
             private static bool Emote(Player __instance, string b1, string b2, EmoteState state)
             {
