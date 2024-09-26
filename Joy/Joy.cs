@@ -63,71 +63,34 @@ namespace Joy
             }
 
             // Joy Button Combo to Enable Fly Mode
-            [HarmonyPrefix, HarmonyPatch(typeof(Player)), HarmonyPatch("Update")]
+            [HarmonyPrefix, HarmonyPatch(typeof(Player)), HarmonyPatch("Update"), HarmonyPriority(Priority.VeryLow)]
             private static bool UpdatePrefix(Player __instance)
             {
-                if (
-                    ZInput.InputLayout != InputLayout.Default && 
-                    ZInput.IsGamepadActive() && 
-                    !InventoryGui.IsVisible() && 
-                    !ZInput.GetButtonUp("JoyAltPlace") &&
-                    ZInput.GetButton("JoyAltKeys")
-                ){
-                    __instance.m_altPlace = !__instance.m_altPlace;
-                    if (MessageHud.instance != null)
-                        MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, 
-                            Localization.instance.Localize("$hud_altplacement") + " " +
-                            (__instance.m_altPlace ? Localization.instance.Localize("$hud_on") :
-                                Localization.instance.Localize("$hud_off")));
+                if (!__instance.m_nview.IsValid() || !__instance.m_nview.IsOwner() || !__instance.TakeInput()) 
+                    return true;
+                
+                if (ZInput.GetButton("JoyAltKeys") && !ZInput.GetButton("JoyRun") && ZInput.GetButtonUp("JoySit"))
+                {
+                    _flyModeToggler.ToggleFlyMode(ref __instance.m_debugFly, ref __instance.m_noPlacementCost);
+                    return false;
                 }
                 
-                if (!__instance.m_nview.IsValid() || !__instance.m_nview.IsOwner()) return false;
-                bool input = __instance.TakeInput();
-                __instance.UpdateHover();
-
-                if (input) {
-                    if (ZInput.GetButton("JoyAltKeys") && !ZInput.GetButton("JoyRun") &&
-                        ZInput.GetButtonDown("JoySit")
-                    ){
-                        _flyModeToggler.ToggleFlyMode(ref __instance.m_debugFly, ref __instance.m_noPlacementCost);
-                        return false;
-                    }
-                    
-                    // Don't actually sit down if in fly mode.
-                    if (__instance.m_debugFly && ZInput.GetButtonDown("JoySit") || 
-                        ZInput.GetButtonUp("JoySit")) return false;
-                }
+                // Don't actually sit down if in fly mode.
+                if (__instance.m_debugFly && ZInput.GetButtonUp("JoySit")) return false;
 
                 return true;
             }
 
-            // Enable Joy Buttons for Fly Up and Down
-            [HarmonyPrefix, HarmonyPatch(typeof(Character)), HarmonyPatch("UpdateDebugFly")]
-            private static bool UpdateDebugFlyPrefix(Character __instance, float dt)
+            // Fly down with sit button.
+            [HarmonyPostfix, HarmonyPatch(typeof(Character)), HarmonyPatch("UpdateDebugFly")]
+            private static void UpdateDebugFlyPostfix(Character __instance, float dt)
             {
-                float num = __instance.m_run ? Character.m_debugFlySpeed * 2.5f : Character.m_debugFlySpeed;
-                Vector3 b = __instance.m_moveDir * num;
-                if (__instance.TakeInput())
-                {
-                    if (ZInput.GetButton("Jump") || ZInput.GetButton("JoyJump"))
-                        // This is is the original source but as soon as a build piece is visible you can never fly up
-                        // again. Plus we actually want to be able to fly with a build piece visible anyway.
-                        // && Character.takeInputDelay <= 0.0 && !Hud.IsPieceSelectionVisible())
-                        b.y = num;
-                    else if (ZInput.GetKey(KeyCode.LeftControl) || ZInput.GetButton("JoyCrouch") ||
-                            ZInput.GetButton("JoySit"))
-                        b.y = -num;
-                }
-                __instance.m_currentVel = Vector3.Lerp(__instance.m_currentVel, b, 0.5f);
-                __instance.m_body.velocity = __instance.m_currentVel;
-                __instance.m_body.useGravity = false;
-                __instance.m_lastGroundTouch = 0.0f;
-                __instance.m_maxAirAltitude = __instance.transform.position.y;
-                __instance.m_body.rotation = Quaternion.RotateTowards(__instance.transform.rotation, 
-                    __instance.m_lookYaw, __instance.m_turnSpeed * dt);
-                __instance.m_body.angularVelocity = Vector3.zero;
-                __instance.UpdateEyeRotation();
-                return false;
+                if (!__instance.TakeInput() || !ZInput.GetButton("JoySit")) return;
+                
+                float speed = __instance.m_run ? Character.m_debugFlySpeed * 2.5f : Character.m_debugFlySpeed;
+                Vector3 v = __instance.m_moveDir * speed;
+                v.y = -speed;
+                __instance.m_body.velocity = __instance.m_currentVel = Vector3.Lerp(__instance.m_currentVel, v, 0.5f);
             }
             
             private interface IFlyModeToggler
@@ -213,16 +176,13 @@ namespace Joy
                     [HarmonyPrefix, HarmonyPatch("UseStamina")]
                     private static void UseStaminaPrefix(ref float v)
                     {
-                        if (!_enableFlyMode) return;
-                        v = 0.0f;
+                        if (_enableFlyMode) v = 0.0f;
                     }
                     
-                    [HarmonyPrefix, HarmonyPatch("GetMaxCarryWeight")]
-                    private static bool GetMaxCarryWeightPrefix(ref float __result)
+                    [HarmonyPostfix, HarmonyPatch("GetMaxCarryWeight")]
+                    private static void GetMaxCarryWeightPostfix(ref float __result)
                     {
-                        if (!_enableFlyMode) return true;
-                        __result = 99999f;
-                        return false;
+                        if (_enableFlyMode) __result = 99999f;
                     }
                     
                     [HarmonyPrefix, HarmonyPatch("UpdateFood")]
@@ -359,13 +319,6 @@ namespace Joy
                 return false;
             }
 
-            private static bool ReturnAndShouldContinue(ref bool __result, string name)
-            {
-                if (_emoteState == EmoteState.None || _buttons.Contains(name)) return true;
-                __result = false;
-                return false;
-            }
-
             [HarmonyPostfix, HarmonyPatch(typeof(ZInput)), HarmonyPatch("Reset")]
             private static void ResetPostfix(ZInput __instance)
             {
@@ -385,21 +338,27 @@ namespace Joy
                 __instance.AddButton(R3, GamepadInput.StickRButton);
             }
 
-            [HarmonyPrefix, HarmonyPatch(typeof(ZInput)), HarmonyPatch("GetButton")]
-            private static bool GetButtonPrefix(ref bool __result, string name) => 
-                ReturnAndShouldContinue(ref __result,name);
+            [HarmonyPostfix, HarmonyPatch(typeof(ZInput)), HarmonyPatch("GetButton")]
+            private static void GetButtonPostfix(ref bool __result, string name) => 
+                ShouldCancel(ref __result, name);
             
-            [HarmonyPrefix, HarmonyPatch(typeof(ZInput)), HarmonyPatch("GetButtonDown")]
-            private static bool GetButtonDownPrefix(ref bool __result, string name) => 
-                ReturnAndShouldContinue(ref __result, name);
+            [HarmonyPostfix, HarmonyPatch(typeof(ZInput)), HarmonyPatch("GetButtonDown")]
+            private static void GetButtonDownPostfix(ref bool __result, string name) => 
+                ShouldCancel(ref __result, name);
+            
+            private static void ShouldCancel(ref bool __result, string name)
+            {
+                if (_emoteState != EmoteState.None && !_buttons.Contains(name))
+                    __result = false;
+            }
 
-            [HarmonyPrefix, HarmonyPatch(typeof(Player)), HarmonyPatch("Update")]
+            [HarmonyPrefix, HarmonyPatch(typeof(Player)), HarmonyPatch("Update"), HarmonyPriority(Priority.VeryLow)]
             private static bool UpdatePrefix(Player __instance)
             {
-                if (!__instance.m_nview.IsValid() || !__instance.m_nview.IsOwner()) return false;
-                if (!__instance.TakeInput()) return true;
-                if (Emote(__instance, L1, L2, EmoteState.First)) return false;
-                if (Emote(__instance, R1, R2, EmoteState.Second)) return false;
+                if (!__instance.m_nview.IsValid() || !__instance.m_nview.IsOwner() || !__instance.TakeInput()) 
+                    return true;
+                if (Emote(__instance, L1, L2, EmoteState.First) || 
+                    Emote(__instance, R1, R2, EmoteState.Second)) return false;
                 _emoteState = EmoteState.None;
                 return true;
             }
