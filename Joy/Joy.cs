@@ -452,25 +452,14 @@ namespace Joy
 
             private class DefaultClosestPinGetter : IClosestPinGetter
             {
-                private delegate Vector3 ScreenToWorldPointDelegate(Minimap instance, Vector3 mousePos);
-                private static readonly ScreenToWorldPointDelegate ScreenToWorldPoint = AccessTools.MethodDelegate
-                    <ScreenToWorldPointDelegate>(AccessTools.Method(typeof(Minimap), "ScreenToWorldPoint"));
-            
-                private delegate Minimap.PinData GetClosestPinDelegate(Minimap instance, Vector3 pos, float radius);
-                private static readonly GetClosestPinDelegate MinimapGetClosestPin = AccessTools.MethodDelegate
-                    <GetClosestPinDelegate>(AccessTools.Method(typeof(Minimap), "GetClosestPin"));
-                
-                private static readonly AccessTools.FieldRef<Minimap, float> _largeZoom = AccessTools.FieldRefAccess
-                    <Minimap, float>("m_largeZoom");
-
                 public Minimap.PinData? GetClosestPin()
                 {
                     Minimap mm = Minimap.instance;
                     Vector3 pos = ZInput.IsGamepadActive() 
-                        ? ScreenToWorldPoint(mm, new Vector3(Screen.width / 2f, Screen.height / 2f))
-                        : ScreenToWorldPoint(mm, Input.mousePosition);
+                        ? mm.ScreenToWorldPoint(new Vector3(Screen.width / 2f, Screen.height / 2f))
+                        : mm.ScreenToWorldPoint(Input.mousePosition);
 
-                    return MinimapGetClosestPin(mm, pos, mm.m_removeRadius * (_largeZoom(mm) * 2f));
+                    return mm.GetClosestPin(pos, mm.m_removeRadius * (mm.m_largeZoom * 2f));
                 }
             }
         }
